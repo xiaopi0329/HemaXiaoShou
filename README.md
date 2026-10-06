@@ -10,6 +10,21 @@
 | 目标应用 | 河马剧场 `com.dz.hmjc`（静态作用域） |
 | 偏好文件 | `hippo_xposed_config` |
 
+## 下载
+
+编译好的 APK 在 **Releases** 页：
+
+**➡️ [下载最新版 HemaXiaoShou-v1.0.0.apk](https://github.com/xiaopi0329/HemaXiaoShou/releases/latest)**
+
+| 项 | 值 |
+| --- | --- |
+| 文件名 | `HemaXiaoShou-v1.0.0.apk` |
+| 大小 | 5,048,554 字节（4.81 MB） |
+| SHA-256 | `433DCC0DFE3CF9D1733EA3244C7B4C6EBE2C5D9C55D8EF5B1336B2C314628495` |
+| 签名 | Android debug key |
+
+APK 不入源码库（`.gitignore` 排除 `*.apk`），只作为 Release 附件分发。也可以自行构建，见下方「构建」。
+
 ## 功能
 
 - **去除广告**
