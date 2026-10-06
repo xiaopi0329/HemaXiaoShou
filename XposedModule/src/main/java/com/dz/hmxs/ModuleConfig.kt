@@ -7,14 +7,12 @@ import android.os.Build
 object ModuleConfig {
     internal const val PREFS_NAME = "hippo_xposed_config"
     private const val KEY_BLOCK_ADS = "block_ads"
-    private const val KEY_UNLOCK_QUALITY = "unlock_quality"
     private const val KEY_BLOCK_READER_ADS = "block_reader_ads"
     private const val KEY_BLOCK_VIDEO_UNLOCK_ADS = "block_video_unlock_ads"
 
     private var prefs: SharedPreferences? = null
     private var defaults = mapOf(
         KEY_BLOCK_ADS to true,
-        KEY_UNLOCK_QUALITY to true,
         KEY_BLOCK_READER_ADS to true,
         KEY_BLOCK_VIDEO_UNLOCK_ADS to true
     )
@@ -23,7 +21,6 @@ object ModuleConfig {
         val local = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         defaults = mapOf(
             KEY_BLOCK_ADS to local.getBoolean(KEY_BLOCK_ADS, true),
-            KEY_UNLOCK_QUALITY to local.getBoolean(KEY_UNLOCK_QUALITY, true),
             KEY_BLOCK_READER_ADS to local.getBoolean(KEY_BLOCK_READER_ADS, true),
             KEY_BLOCK_VIDEO_UNLOCK_ADS to local.getBoolean(KEY_BLOCK_VIDEO_UNLOCK_ADS, true)
         )
@@ -33,7 +30,6 @@ object ModuleConfig {
         prefs = remote
         defaults = mapOf(
             KEY_BLOCK_ADS to remote.getBoolean(KEY_BLOCK_ADS, true),
-            KEY_UNLOCK_QUALITY to remote.getBoolean(KEY_UNLOCK_QUALITY, true),
             KEY_BLOCK_READER_ADS to remote.getBoolean(KEY_BLOCK_READER_ADS, true),
             KEY_BLOCK_VIDEO_UNLOCK_ADS to remote.getBoolean(KEY_BLOCK_VIDEO_UNLOCK_ADS, true)
         )
@@ -60,10 +56,6 @@ object ModuleConfig {
     var blockAds: Boolean
         get() = readBoolean(KEY_BLOCK_ADS)
         set(value) = writeBoolean(KEY_BLOCK_ADS, value)
-
-    var unlockQuality: Boolean
-        get() = readBoolean(KEY_UNLOCK_QUALITY)
-        set(value) = writeBoolean(KEY_UNLOCK_QUALITY, value)
 
     var blockReaderAds: Boolean
         get() = readBoolean(KEY_BLOCK_READER_ADS)

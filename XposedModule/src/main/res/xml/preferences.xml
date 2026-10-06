@@ -9,12 +9,6 @@
             android:summary="屏蔽启动页广告、信息流广告、视频前贴片广告等"
             android:defaultValue="true" />
             
-        <SwitchPreferenceCompat
-            android:key="unlock_quality"
-            android:title="解锁视频清晰度"
-            android:summary="解锁清晰度切换菜单，可选择服务端下发的各档画质"
-            android:defaultValue="true" />
-            
     </PreferenceCategory>
     
     <PreferenceCategory android:title="细粒度控制">
@@ -36,7 +30,7 @@
     <PreferenceCategory android:title="关于">
         <Preference
             android:title="版本"
-            android:summary="1.0.0"
+            android:summary="1.0.1"
             android:enabled="false" />
         <Preference
             android:title="目标应用"

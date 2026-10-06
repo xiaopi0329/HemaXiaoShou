@@ -43,12 +43,7 @@ class HippoXposedModule : XposedModule() {
                 "com.dz.business.video.unlock.ad.loader.interstitial.a", "t"
             ),
             Triple("解锁: UnlockAdVM.d0", "com.dz.business.video.unlock.ad.UnlockAdVM", "d0"),
-            Triple("解锁: UnlockAdVM.onClose", "com.dz.business.video.unlock.ad.UnlockAdVM", "onClose"),
-            Triple(
-                "清晰度: ResolutionRateConfig.getResolutionRateSwitch",
-                "com.dz.business.base.data.bean.ResolutionRateConfig", "getResolutionRateSwitch"
-            ),
-            Triple("清晰度: data.b.z5", "com.dz.business.base.data.b", "z5")
+            Triple("解锁: UnlockAdVM.onClose", "com.dz.business.video.unlock.ad.UnlockAdVM", "onClose")
         )
     }
 
@@ -74,7 +69,6 @@ class HippoXposedModule : XposedModule() {
         hookAdManager(classLoader)
         hookReaderAdManager(classLoader)
         hookVideoUnlockAds(classLoader)
-        hookQualitySwitch(classLoader)
         hooksInstalled = true
         log(Log.INFO, TAG, "Hook groups attempted; per-hook result logged above.")
 
@@ -496,47 +490,5 @@ class HippoXposedModule : XposedModule() {
         } catch (e: Throwable) {
             log(Log.WARN, TAG, "UnlockAdVM hook skipped: ${e.message}")
         }
-    }
-
-    // ------------------------------------------------------------------
-    // 4. 清晰度解锁
-    //
-    // 3.11.1 里 dz BasePlayer 混淆为 ...player.k，只有 y(Option)F 读取方法，
-    // 没有任何写 bitrate 的 setOption；App 侧也不调用 setDefaultResolution。
-    // 旧版 hook 的 BasePlayer.setOption / AliPlayer.setOption(Option, Object) 在本版本不存在。
-    // 实际限制清晰度的是"清晰度开关"：
-    //   - ResolutionRateConfig.getResolutionRateSwitch()  服务端开关（关闭时 VideoMSImpl 强制 Uf("720P")）
-    //   - com.dz.business.base.data.b.z5()               本地开关（关闭时 BaseResolutionDialogComp 直接 dismiss 弹窗）
-    // 两个都强制为 true 才能放开清晰度切换。
-    // ------------------------------------------------------------------
-    private fun hookQualitySwitch(classLoader: ClassLoader) {
-        if (!ModuleConfig.unlockQuality) return
-
-        try {
-            val rateConfig = classLoader.loadClass(
-                "com.dz.business.base.data.bean.ResolutionRateConfig"
-            )
-            tryHook("ResolutionRateConfig.getResolutionRateSwitch() [force true]") {
-                hookMethod(rateConfig, "getResolutionRateSwitch").invoke {
-                    log(Log.DEBUG, TAG, "resolutionRateSwitch forced true")
-                    true
-                }
-            }
-        } catch (e: Throwable) {
-            log(Log.WARN, TAG, "ResolutionRateConfig hook skipped: ${e.message}")
-        }
-
-        try {
-            val dataRepo = classLoader.loadClass("com.dz.business.base.data.b")
-            tryHook("data.b.z5() [force true]") {
-                hookMethod(dataRepo, "z5").invoke {
-                    log(Log.DEBUG, TAG, "resolution local switch forced true")
-                    true
-                }
-            }
-        } catch (e: Throwable) {
-            log(Log.WARN, TAG, "data.b.z5() hook skipped: ${e.message}")
-        }
-
     }
 }

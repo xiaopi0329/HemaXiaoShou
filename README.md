@@ -14,16 +14,31 @@
 
 编译好的 APK 在 **Releases** 页：
 
-**➡️ [下载最新版 HemaXiaoShou-v1.0.0.apk](https://github.com/xiaopi0329/HemaXiaoShou/releases/latest)**
+**➡️ [下载最新版 HemaXiaoShou-v1.0.1.apk](https://github.com/xiaopi0329/HemaXiaoShou/releases/latest)**
 
 | 项 | 值 |
 | --- | --- |
-| 文件名 | `HemaXiaoShou-v1.0.0.apk` |
+| 文件名 | `HemaXiaoShou-v1.0.1.apk` |
 | 大小 | 5,048,554 字节（4.81 MB） |
-| SHA-256 | `433DCC0DFE3CF9D1733EA3244C7B4C6EBE2C5D9C55D8EF5B1336B2C314628495` |
+| SHA-256 | `CD5A282E395617DF378228B3A17AF822520BC7D94865DF5604DA0375C60B8500` |
 | 签名 | Android debug key |
 
 APK 不入源码库（`.gitignore` 排除 `*.apk`），只作为 Release 附件分发。也可以自行构建，见下方「构建」。
+
+## 版本变更
+
+### v1.0.1
+
+- **移除「解锁视频清晰度」功能**：该功能经复核不提升画质，只影响清晰度菜单能否打开
+  （开关关 = App 强制 720P；开关开 = 最多也只能选 720P，上限完全相同），属于名不副实的声明，故整体删除
+- 删除 `hookQualitySwitch()` 及 `ResolutionRateConfig` / `data.b.z5` 两个 hook，hook 总数 13 → **11**
+- 设置页移除「解锁视频清晰度」开关，应用描述改为「去除河马剧场广告」
+- 自检清单同步更新为 11 项
+
+### v1.0.0
+
+- 首个版本：去广告（开屏 / 信息流 / 前贴片 / 阅读页 / 剧集解锁）、注入自检
+- 不注册桌面入口，LSPosed 启用即注入
 
 ## 功能
 
@@ -34,8 +49,7 @@ APK 不入源码库（`.gitignore` 排除 `*.apk`），只作为 Release 附件�
   - 剧集解锁激励广告与插屏：解锁加载器 + `UnlockAdVM`
 - **注入自检**：每次注入核对全部目标类/方法，`[OK]`/`[MISS]` 逐项列出；首次注入额外弹一次屏幕提示。
 
-> **本模块不提供画质解锁功能** —— 做不到，原因见下节。
-> 设置页里那个「解锁视频清晰度」开关经过复核**并不提升画质**，详见「关于画质」。
+> **本模块不提供画质解锁功能** —— 做不到，原因见下节「关于画质」。
 
 设置页可分别开关：去除广告、屏蔽阅读页广告、屏蔽视频解锁广告（无桌面图标，用 adb 打开，见下）。
 
@@ -65,10 +79,10 @@ APK 不入源码库（`.gitignore` 排除 `*.apk`），只作为 Release 附件�
 **两种情况拿到的最高画质完全相同。** 开关只决定"菜单能不能打开"，决定不了"能拿到什么流"；
 它唯一多出来的能力，是让你把画质**降到 540P**。
 
-因此这两个 hook 目前仅作为实现细节保留（见下方「清晰度开关」），**不要指望它能提升画质**。
+因此这两个 hook 已在 **v1.0.1 中彻底移除**（连同设置页那个「解锁视频清晰度」开关），
+模块现在只做去广告与注入自检，声明与实际行为完全一致。
 
 > 要真正拿到 1080P，只有服务端认账（例如真实会员账号）。客户端改不出服务端没有的文件。
-> 这个开关目前仍留在代码与设置页里，纯属历史遗留；想彻底去掉就删掉 `hookQualitySwitch()` 与对应设置项。
 
 ## 支持版本
 
@@ -116,8 +130,8 @@ sdk.dir=C:/Users/<你的用户名>/AppData/Local/Android/Sdk
 
 ## 安装与启用
 
-1. 安装 Debug APK。应用名是 **河马小手**，但**不注册桌面入口**——桌面上和应用列表里都不会出现图标。
-2. 在 LSPosed 里启用该模块并勾选作用域 `河马剧场`。**启用后即生效**，不需要打开任何界面（四个开关默认全开，配置项不必手动初始化）。
+1. 安装 APK。应用名是 **河马小手**，但**不注册桌面入口**——桌面上和应用列表里都不会出现图标。
+2. 在 LSPosed 里启用该模块并勾选作用域 `河马剧场`。**启用后即生效**，不需要打开任何界面（三个开关默认全开，配置项不必手动初始化）。
 3. **注意**：LSPosed 按包名记录模块启用状态，改动包名（例如从 `com.dz.hippo.xposed` 改成 `com.dz.hmxs`）会被视为全新模块，需要重新启用一次。
 4. 强制停止河马剧场后重新打开，模块在注入时会先做一次**自检**（见下）。
 
@@ -132,8 +146,8 @@ sdk.dir=C:/Users/<你的用户名>/AppData/Local/Android/Sdk
 框架     : LSPosed 2.2.1 (API 102)
 [OK]   广告: AdManager.l (拦截加载)  <- com.dz.platform.ad.a#l
 ...
-[OK]   清晰度: data.b.z5  <- com.dz.business.base.data.b#z5
-结果     : 13/13 项全部匹配，模块可正常工作
+[OK]   解锁: UnlockAdVM.onClose  <- com.dz.business.video.unlock.ad.UnlockAdVM#onClose
+结果     : 11/11 项全部匹配，模块可正常工作
 ======================================
 目标应用版本: 3.11.1 (11031101)
 ```
@@ -179,15 +193,14 @@ adb shell am start -a com.dz.hmxs.action.SETTINGS
 
 > 参数里的 `Boolean` 是装箱类型（`java.lang.Boolean`），不是 `boolean.class`，写错会 `NoSuchMethodException`。
 
-### 清晰度开关（无画质收益）
+### 已移除：清晰度开关
 
-- `ResolutionRateConfig.getResolutionRateSwitch()` → 强制 `true`
-- `com.dz.business.base.data.b.z5()` → 强制 `true`
+v1.0.1 移除。原因见「关于画质」——它不提升画质，只影响菜单能否打开。
 
-> **注意：这两个 hook 不提升画质**，只影响清晰度菜单是否可打开，最高档位仍由服务端限定为 720P。
-> 理由与实测证据见「关于画质」一节。
-
-> 旧版按 `BasePlayer.setOption(VIDEO_BITRATE)` 覆盖码率的做法在 3.11.1 **不可行**：dz 的播放器（混淆为 `com.dz.platform.player.player.k`）只有读取方法 `y(Option)F`，没有写 bitrate 的 `setOption`，App 也不调用 `setDefaultResolution`；`AliPlayer` 是接口，无法这样 hook。
+历史记录（便于理解为什么不再做）：
+- 曾 hook `ResolutionRateConfig.getResolutionRateSwitch()` 与 `com.dz.business.base.data.b.z5()` 强制返回 `true`
+- 旧版按 `BasePlayer.setOption(VIDEO_BITRATE)` 覆盖码率的做法在 3.11.1 **不可行**：dz 的播放器（混淆为 `com.dz.platform.player.player.k`）只有读取方法 `y(Option)F`，没有写 bitrate 的 `setOption`，App 也不调用 `setDefaultResolution`；`AliPlayer` 是接口，无法这样 hook
+- 因此清晰度这条路在客户端侧**没有任何可行解**，已整体放弃
 
 ## 目录结构
 
