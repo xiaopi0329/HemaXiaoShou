@@ -1,6 +1,6 @@
 # 河马小手（河马剧场 Xposed 模块）
 
-基于 Modern Xposed API 102 的 Android 模块，用于去除河马剧场广告并解锁清晰度切换菜单。
+基于 Modern Xposed API 102 的 Android 模块，用于去除河马剧场广告。
 
 | 项 | 值 |
 | --- | --- |
@@ -32,19 +32,43 @@ APK 不入源码库（`.gitignore` 排除 `*.apk`），只作为 Release 附件�
   - 信息流 / 视频前贴片：`AdManager.l`、`AdManager.A`、`AdManager.B`
   - 阅读页广告：`ReaderAdManager.a`、`ReaderAdManager.e`、`ReaderAdManager.h`
   - 剧集解锁激励广告与插屏：解锁加载器 + `UnlockAdVM`
-- **解锁清晰度切换菜单**：强制打开两个开关（服务端开关 `ResolutionRateConfig.getResolutionRateSwitch()`、本地开关 `data.b.z5()`），打开后可在菜单里自由选择服务端已下发的各档画质。
 - **注入自检**：每次注入核对全部目标类/方法，`[OK]`/`[MISS]` 逐项列出；首次注入额外弹一次屏幕提示。
 
-设置页可分别开关：去除广告、解锁视频清晰度、屏蔽阅读页广告、屏蔽视频解锁广告（无桌面图标，用 adb 打开，见下）。
+> **本模块不提供画质解锁功能** —— 做不到，原因见下节。
+> 设置页里那个「解锁视频清晰度」开关经过复核**并不提升画质**，详见「关于画质」。
 
-## 关于 1080P（重要）
+设置页可分别开关：去除广告、屏蔽阅读页广告、屏蔽视频解锁广告（无桌面图标，用 adb 打开，见下）。
 
-**模块不解锁 1080P，也做不到**，这是实测结论而非未实现：
+## 关于画质（重要）
 
-- 客户端确实把 `resolutionRate=1080P` 发给了服务端（抓包确认），服务端仍按账号权限只下发 **720P** 直链；
-- 内容接口的 `resolutionRates` 里 1080P 标记 `needVip:1`，但 CDN 上不存在对应文件——用同一份**有效签名**做对照实验：`720p.narrowv3 → 200`，而 `1080p.narrowv1/v4`、无 profile 的 `1080p`、`1080p.h265` 等命名全部 **404**（404 而非 403，说明签名不拦路径，纯粹是文件不存在）；
-- 请求体是明文 JSON，里面**没有任何 VIP 身份字段**可伪造，VIP 由服务端按账号 token 判定；
-- 因此只能做到"解锁切换菜单"，能自由选 540P / 720P，**画质上限由服务端控制**。要 1080P 只能服务端认账（例如真实会员账号）。
+**本模块不提供"画质解锁"，因为它做不到 —— 这不是没实现，而是由服务端决定。**
+
+### 免费账号的画质上限就是 720P
+
+- 服务端下发的 `resolutionRates` 为：`1080P (needVip:1)`、`720P (needVip:0)`、`540P (needVip:0)`；
+- 客户端确实把 `resolutionRate=1080P` 发给了服务端（抓包确认请求体），服务端仍只下发 **720P** 直链；
+- 内容接口的 1080P 标记为 `needVip:1`，但 CDN 上不存在对应文件——用同一份**有效签名**做对照实验：
+  `720p.narrowv3 → 200`，而 `1080p.narrowv1/v4`、无 profile 的 `1080p`、`1080p.h265` 等命名全部 **404**
+  （404 而非 403，说明签名不拦路径，纯粹是文件不存在）；
+- 请求体是明文 JSON，里面**没有任何 VIP 身份字段**可伪造，VIP 由服务端按账号 token 判定。
+
+### 那两个清晰度开关为什么也提升不了画质
+
+模块确实 hook 了 `ResolutionRateConfig.getResolutionRateSwitch()` 与 `com.dz.business.base.data.b.z5()`
+并强制返回 `true`（早期版本把它当作"解锁清晰度"）。但复核后结论是**它不构成功能**：
+
+| 服务端开关 | App 行为 | 你能拿到的最高画质 |
+| --- | --- | --- |
+| 关 | App 自己强制 720P（`Uf("720P")`） | 720P |
+| 开 | 清晰度菜单可用，最多能选到 720P | 720P |
+
+**两种情况拿到的最高画质完全相同。** 开关只决定"菜单能不能打开"，决定不了"能拿到什么流"；
+它唯一多出来的能力，是让你把画质**降到 540P**。
+
+因此这两个 hook 目前仅作为实现细节保留（见下方「清晰度开关」），**不要指望它能提升画质**。
+
+> 要真正拿到 1080P，只有服务端认账（例如真实会员账号）。客户端改不出服务端没有的文件。
+> 这个开关目前仍留在代码与设置页里，纯属历史遗留；想彻底去掉就删掉 `hookQualitySwitch()` 与对应设置项。
 
 ## 支持版本
 
@@ -155,10 +179,13 @@ adb shell am start -a com.dz.hmxs.action.SETTINGS
 
 > 参数里的 `Boolean` 是装箱类型（`java.lang.Boolean`），不是 `boolean.class`，写错会 `NoSuchMethodException`。
 
-### 清晰度解锁
+### 清晰度开关（无画质收益）
 
 - `ResolutionRateConfig.getResolutionRateSwitch()` → 强制 `true`
 - `com.dz.business.base.data.b.z5()` → 强制 `true`
+
+> **注意：这两个 hook 不提升画质**，只影响清晰度菜单是否可打开，最高档位仍由服务端限定为 720P。
+> 理由与实测证据见「关于画质」一节。
 
 > 旧版按 `BasePlayer.setOption(VIDEO_BITRATE)` 覆盖码率的做法在 3.11.1 **不可行**：dz 的播放器（混淆为 `com.dz.platform.player.player.k`）只有读取方法 `y(Option)F`，没有写 bitrate 的 `setOption`，App 也不调用 `setDefaultResolution`；`AliPlayer` 是接口，无法这样 hook。
 
