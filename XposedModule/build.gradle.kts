@@ -16,14 +16,17 @@ android {
         applicationId = "com.dz.hmxs"
         minSdk = 21
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // 开 R8：整个 androidx 全家桶只保留真正用到的类与方法，
+            // dex 从 ~9 MB 降到 ~1.6 MB；shrinkResources 同步删掉未使用资源。
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -37,12 +40,9 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.11.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.preference:preference-ktx:1.2.1")
-
+    // 本模块没有 UI（设置页已移除），不需要任何 androidx 库；
+    // 全部 API 都来自 Android framework（Context / Handler / Toast 等）。
+    // 仅保留 libxposed API 作为 compileOnly（由框架在运行时提供，不打进 APK）。
     compileOnly("io.github.libxposed:api:102.0.0")
 
     testImplementation("junit:junit:4.13.2")

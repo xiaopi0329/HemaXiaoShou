@@ -14,18 +14,41 @@
 
 编译好的 APK 在 **Releases** 页：
 
-**➡️ [下载最新版 HemaXiaoShou-v1.0.1.apk](https://github.com/xiaopi0329/HemaXiaoShou/releases/latest)**
+**➡️ [下载最新版 HemaXiaoShou-v1.0.2.apk](https://github.com/xiaopi0329/HemaXiaoShou/releases/latest)**
 
 | 项 | 值 |
 | --- | --- |
-| 文件名 | `HemaXiaoShou-v1.0.1.apk` |
-| 大小 | 5,048,554 字节（4.81 MB） |
-| SHA-256 | `CD5A282E395617DF378228B3A17AF822520BC7D94865DF5604DA0375C60B8500` |
+| 文件名 | `HemaXiaoShou-v1.0.2.apk` |
+| 大小 | **50,666 字节（49 KB）** |
+| SHA-256 | `7D147D1465C323E510FB5464A49A1A5013F2D280C34071470B47B9B452987D91` |
 | 签名 | Android debug key |
 
 APK 不入源码库（`.gitignore` 排除 `*.apk`），只作为 Release 附件分发。也可以自行构建，见下方「构建」。
 
 ## 版本变更
+
+### v1.0.2 — 体积从 4.81 MB 降到 49 KB
+
+两步压缩，**减少 99%**：
+
+1. **开启 R8（`isMinifyEnabled` + `shrinkResources`）**：dex 从 8.9 MB 降到 1.6 MB —— 5,048,554 → 2,275,502 字节
+2. **移除整个设置界面**：设置页正是 `appcompat` / `material` / `preference` 三个库存在的唯一理由，
+   连同 `themes.xml`、`colors.xml` 一起删除后，4 个 androidx 依赖全部砍掉，`resources.arsc`（原 1 MB）整个消失 —— 2,275,502 → **50,666 字节**
+
+其他改动：
+
+- `ModuleConfig` 简化为只读：删除无调用方的 `init()` 与写入路径
+  （LSPosed 远程偏好本就是只读的，写入会抛 `UnsupportedOperationException`）
+- 三个功能开关保留为固定默认值 `true`，**没有配置界面了**，全部功能默认开启
+- 自检与 11 个 hook 不受影响（真机复验 11/11）
+
+体积演进：
+
+| 版本 | 构成 | 大小 |
+| --- | --- | --- |
+| v1.0.1 | 未压缩 + 有设置页 | 5,048,554 字节 |
+| v1.0.2 | R8 压缩 + 有设置页 | 2,275,502 字节 |
+| **v1.0.2** | **R8 压缩 + 无设置页** | **50,666 字节** |
 
 ### v1.0.1
 
@@ -51,7 +74,7 @@ APK 不入源码库（`.gitignore` 排除 `*.apk`），只作为 Release 附件�
 
 > **本模块不提供画质解锁功能** —— 做不到，原因见下节「关于画质」。
 
-设置页可分别开关：去除广告、屏蔽阅读页广告、屏蔽视频解锁广告（无桌面图标，用 adb 打开，见下）。
+模块**无任何界面**（无桌面图标、无设置页），上述功能安装后始终开启，见「配置」。
 
 ## 关于画质（重要）
 
@@ -130,8 +153,8 @@ sdk.dir=C:/Users/<你的用户名>/AppData/Local/Android/Sdk
 
 ## 安装与启用
 
-1. 安装 APK。应用名是 **河马小手**，但**不注册桌面入口**——桌面上和应用列表里都不会出现图标。
-2. 在 LSPosed 里启用该模块并勾选作用域 `河马剧场`。**启用后即生效**，不需要打开任何界面（三个开关默认全开，配置项不必手动初始化）。
+1. 安装 APK。应用名是 **河马小手**，但**既不注册桌面入口，也没有任何界面**——桌面上和应用列表里都不会出现图标。
+2. 在 LSPosed 里启用该模块并勾选作用域 `河马剧场`。**启用后即生效**，无需任何额外操作。
 3. **注意**：LSPosed 按包名记录模块启用状态，改动包名（例如从 `com.dz.hippo.xposed` 改成 `com.dz.hmxs`）会被视为全新模块，需要重新启用一次。
 4. 强制停止河马剧场后重新打开，模块在注入时会先做一次**自检**（见下）。
 
@@ -158,24 +181,17 @@ sdk.dir=C:/Users/<你的用户名>/AppData/Local/Android/Sdk
   记「已提示过」用的是目标应用私有目录下的空标记文件
   `/data/data/com.dz.hmjc/files/.hmxs_selfcheck_shown`，删掉它即可让提示重新出现。
 
-### 打开设置界面
-
-因为不注册桌面入口，需要时用 adb 打开：
-
-```powershell
-adb shell am start -n com.dz.hmxs/.SettingsActivity
-# 或者
-adb shell am start -a com.dz.hmxs.action.SETTINGS
-```
-
-> 注意：LSPosed 通过 `getRemotePreferences` 暴露给注入进程的偏好是**只读**的
-> （写入会抛 `UnsupportedOperationException: Read only implementation`），
-> 所以配置只能由模块自己的设置界面写入，注入端只读。`ModuleConfig` 的写入路径已经吞掉该异常，
-> 避免打断 `onPackageReady`。
-
 ## 配置
 
-设置界面使用模块偏好文件 `hippo_xposed_config`。模块通过 Modern API 的远程偏好读取同一组配置，目标应用进程不会直接读取模块的私有文件。
+**没有配置界面**。v1.0.2 起设置页被整体移除，三个功能开关（`block_ads` / `block_reader_ads` /
+`block_video_unlock_ads`）保留为远程偏好读取，但没有写入方，恒为默认值 `true`，即全部功能始终开启。
+
+> 保留 `ModuleConfig.bindRemotePreferences()` 这层间接的目的是：将来若接入别的配置渠道
+> （例如 LSPosed 模块设置页），只需补写入方，hook 侧零改动。
+>
+> 顺带说明：LSPosed 通过 `getRemotePreferences` 给注入进程的偏好是**只读**的
+> （写入抛 `UnsupportedOperationException: Read only implementation`），
+> 早期版本曾因此打断过 `onPackageReady`，现在 `ModuleConfig` 已不提供写入路径。
 
 ## 实现
 
@@ -206,19 +222,20 @@ v1.0.1 移除。原因见「关于画质」——它不提升画质，只影响�
 
 ```text
 XposedModule/
-├── build.gradle.kts
-├── proguard-rules.pro
+├── build.gradle.kts          # 开了 isMinifyEnabled + isShrinkResources，无 androidx 依赖
+├── proguard-rules.pro        # 保住 Xposed 入口类名与反射点
 ├── src/main/
-│   ├── AndroidManifest.xml
+│   ├── AndroidManifest.xml   # 无 Activity、无 LAUNCHER 入口
 │   ├── java/com/dz/hmxs/
-│   │   ├── HippoXposedModule.kt
-│   │   ├── ModuleConfig.kt
-│   │   └── SettingsActivity.kt
+│   │   ├── HippoXposedModule.kt   # 入口 + 11 个 hook + 注入自检
+│   │   └── ModuleConfig.kt        # 只读开关（无 UI，恒为默认值）
 │   ├── resources/META-INF/xposed/
 │   │   ├── java_init.list        # 入口类 com.dz.hmxs.HippoXposedModule
 │   │   ├── module.prop           # minApiVersion/targetApiVersion = 102
 │   │   └── scope.list            # com.dz.hmjc
 │   └── res/
+│       ├── mipmap-xxxhdpi/       # 模块图标（供 LSPosed 列表显示）
+│       └── values/strings.xml    # app_name / module_description
 └── build/outputs/apk/
 ```
 
