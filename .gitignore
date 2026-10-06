@@ -1,0 +1,45 @@
+# ---------------------------------------------------------------
+# 目标应用的原始 APK 与反编译产物：版权内容，且体积巨大，绝不入库
+# ---------------------------------------------------------------
+*.apk
+*.apk.bak
+apk_out/
+_dex/
+dex_out/
+
+# 本地下载的 Gradle 发行包（仓库只用 wrapper）
+gradle-8.2/
+gradle-8.2-bin.zip
+gradle-*-bin.zip
+
+# 构建产物与缓存
+build/
+*/build/
+.gradle/
+.kotlin/
+captures/
+*.hprof
+hs_err_pid*.log
+replay_pid*.log
+
+# 本机配置（含绝对路径 SDK 目录）
+local.properties
+
+# 备份文件
+*.bak
+*.bak-*
+*.orig
+.srcbak/
+backups/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 调试与签名材料
+*.jks
+*.keystore
+*.log

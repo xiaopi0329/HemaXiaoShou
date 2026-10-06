@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:description="@string/module_description"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme">
+        
+        <!--
+          不再注册 LAUNCHER 入口：桌面与应用列表都不显示图标，
+          模块只要在 LSPosed 里启用即可注入，无需打开任何界面。
+          设置界面仍保留（导出），需要时用 adb 打开：
+            adb shell am start -n com.dz.hmxs/.SettingsActivity
+          或 adb shell am start -a com.dz.hmxs.action.SETTINGS
+        -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="com.dz.hmxs.action.SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
