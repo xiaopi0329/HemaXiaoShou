@@ -22,6 +22,7 @@ object ModuleConfig {
     private const val KEY_BLOCK_ADS = "block_ads"
     private const val KEY_BLOCK_READER_ADS = "block_reader_ads"
     private const val KEY_BLOCK_VIDEO_UNLOCK_ADS = "block_video_unlock_ads"
+    private const val KEY_BLOCK_TEEN_MODE_DIALOG = "block_teen_mode_dialog"
 
     private var prefs: SharedPreferences? = null
 
@@ -43,4 +44,8 @@ object ModuleConfig {
     /** 剧集解锁激励广告与插屏 */
     val blockVideoUnlockAds: Boolean
         get() = readBoolean(KEY_BLOCK_VIDEO_UNLOCK_ADS, true)
+
+    /** 青少年模式弹窗 */
+    val blockTeenModeDialog: Boolean
+        get() = readBoolean(KEY_BLOCK_TEEN_MODE_DIALOG, true)
 }

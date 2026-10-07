@@ -19,7 +19,7 @@ class HippoXposedModule : XposedModule() {
         private const val TARGET_PACKAGE = "com.dz.hmjc"
 
         /** 模块自身的版本号；每次发版必须同步 +1，用于判断"模块是否更新过" */
-        private const val MODULE_VERSION_CODE = 4
+        private const val MODULE_VERSION_CODE = 5
 
         /**
          * 指纹文件名，记录「上次提示时的 模块版本|宿主版本」。
@@ -70,8 +70,24 @@ class HippoXposedModule : XposedModule() {
                 knownName = "com.dz.business.video.unlock.ad.UnlockAdVM",
                 scope = "com.dz.business.video.unlock.ad",
                 strings = listOf("正在加载中", "有缓存且未过期的广告，无需预加载")
+            ),
+            DexTarget(
+                desc = "TeenMSImpl",
+                knownName = "com.dz.business.teen.TeenMSImpl",
+                scope = "com.dz.business.teen",
+                // 这两条日志文案只出现在 TeenMSImpl.w1() 里，是该类独有的字符串特征
+                strings = listOf("dialog 已关闭次数:", "dialog 上次展示是否同一天：")
             )
         )
+
+        /**
+         * 青少年模式弹窗的拦截目标（3.11.1）。
+         *
+         * `TeenMSImpl` 是 `com.dz.business.base.teen.b`（`.source "TeenMS.kt"`）的唯一实现，
+         * `w1(String currentTab)` 返回非 null 的 TeenDialogIntent 时 MainActivity 就会弹窗。
+         */
+        private const val TEEN_IMPL_CLASS = "com.dz.business.teen.TeenMSImpl"
+        private const val TEEN_DIALOG_METHOD = "w1"
     }
 
     private var hooksInstalled = false
@@ -114,6 +130,7 @@ class HippoXposedModule : XposedModule() {
         hookAdManager(classLoader)
         hookReaderAdManager(classLoader)
         hookVideoUnlockAds(classLoader)
+        hookTeenMode(classLoader)
         hooksInstalled = true
         log(Log.INFO, TAG, "Hook groups attempted; per-hook result logged above.")
 
@@ -701,6 +718,58 @@ class HippoXposedModule : XposedModule() {
             }
         } catch (e: Throwable) {
             log(Log.WARN, TAG, "UnlockAdVM hook skipped: ${e.message}")
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // 4. 青少年模式弹窗
+    //
+    // 弹窗决策链（3.11.1）：
+    //   MainActivity.showTeenDialog
+    //     → TeenMSImpl.w1(currentTab)          返回非 null 就会弹窗
+    //         → teen.data.a.k() != 1 → return null     ← 第一道闸门（开关）
+    //         → 关闭次数 / 间隔 / 同日判断
+    //         → teen.utils.a.d()                        ← 第二道闸门
+    //         → teen.data.a.i().contains(tabIndex)      ← 第三道闸门（配置的 tab 白名单）
+    //         → TeenMR.teenModeDialog()
+    //
+    // 拦截点选在 `w1()` 本身，让它返回 null：
+    //   · MainActivity 里是 `if-eqz v0, :cond_0` —— 拿到 null 就直接跳过弹窗分支，
+    //     既不会构造 DialogRouteIntent，也不会进 PriorityTaskManager 排队；
+    //   · `w1()` 只被 MainActivity 这一处调用（另一处是它自己的 lambda），
+    //     拦它不会波及其它功能。
+    //
+    // ⚠️ 为什么**不** hook 第一道闸门 `teen.data.a.k()`（曾用过这个方案，已弃用）：
+    //     `k()` 在 3.11.1 里有两处调用 ——
+    //       L234 在 `w1()` 里（弹窗判定）
+    //       L147 在 `n()` 里（发事件：k()==1 时带 TeenConfigVo，否则带 null）
+    //     而 `n()` 的调用方是 ShareCodeWXDialog。把 `k()` 强制成 0 会连带把那个事件的
+    //     参数从配置对象改成 null，属于本功能之外的副作用。故改为只拦 `w1()`。
+    // ------------------------------------------------------------------
+    private fun hookTeenMode(classLoader: ClassLoader) {
+        if (!ModuleConfig.blockTeenModeDialog) return
+
+        try {
+            val teenMsImpl = classLoader.loadClass(TEEN_IMPL_CLASS)
+            tryHook("TeenMode.w1() [return null => no dialog]") {
+                hookMethod(teenMsImpl, TEEN_DIALOG_METHOD, String::class.java).invoke { chain ->
+                    // 先取原返回值：非 null 才说明这次本会弹窗，被我们拦下；
+                    // 为 null 则说明本就不弹（频率限制/白名单等原因），本次拦截无实际作用。
+                    val origin = try {
+                        chain.proceed()
+                    } catch (e: Throwable) {
+                        null
+                    }
+                    if (origin == null) {
+                        log(Log.DEBUG, TAG, "teen w1() 原返回 null（本就不弹）")
+                    } else {
+                        log(Log.INFO, TAG, "teen w1() 原返回=${origin.javaClass.name} -> 拦下，弹窗不显示")
+                    }
+                    null
+                }
+            }
+        } catch (e: Throwable) {
+            log(Log.WARN, TAG, "TeenMode hook skipped: ${e.javaClass.simpleName}: ${e.message}")
         }
     }
 }
