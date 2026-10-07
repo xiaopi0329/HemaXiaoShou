@@ -14,18 +14,37 @@
 
 编译好的 APK 在 **Releases** 页：
 
-**➡️ [下载最新版 HemaXiaoShou-v1.0.2.apk](https://github.com/xiaopi0329/HemaXiaoShou/releases/latest)**
+**➡️ [下载最新版 HemaXiaoShou-v1.0.3.apk](https://github.com/xiaopi0329/HemaXiaoShou/releases/latest)**
 
 | 项 | 值 |
 | --- | --- |
-| 文件名 | `HemaXiaoShou-v1.0.2.apk` |
-| 大小 | **50,666 字节（49 KB）** |
-| SHA-256 | `7D147D1465C323E510FB5464A49A1A5013F2D280C34071470B47B9B452987D91` |
+| 文件名 | `HemaXiaoShou-v1.0.3.apk` |
+| 大小 | 947,971 字节（926 KB） |
+| SHA-256 | `7EFCC95752FB7EEB8D491DD3EF22EB42D6004D6641DC5176F201DAE43F6D970C` |
 | 签名 | Android debug key |
+
+> v1.0.3 体积比 v1.0.2（49 KB）大了约 18 倍，是因为引入了 **DexKit**（C++ 实现的运行时 dex 解析库，
+> 含 4 个架构的 `libdexkit.so` 与 604 KB dex）。这是换取「宿主更新后自动发现新混淆名」能力的代价。
+> 若不需要该能力，可继续用体积仅 49 KB 的 v1.0.2。
 
 APK 不入源码库（`.gitignore` 排除 `*.apk`），只作为 Release 附件分发。也可以自行构建，见下方「构建」。
 
 ## 版本变更
+
+### v1.0.3 — 自检改用 DexKit，指纹变化才提示
+
+**一、类名检查改用 DexKit**：不再硬编码 `loadClass` 核对，改为用**字符串特征反查 DEX**。
+R8 不改字符串常量，所以宿主更新后混淆名一变，DexKit 仍能把新名字搜出来（`[CHANGED]` 分支直接打印新旧名）。
+
+**二、提示时机改为指纹变化**：指纹 = `模块版本号 | 宿主安装包 lastModified_length`。
+只有**首次启用 / 模块更新 / 宿主更新**才全量核对并弹 Toast，其余冷启动直接跳过。
+
+**三、踩过的三个坑**（详见「注入自检」）：
+1. `libdexkit.so` 在宿主进程不自动加载，须从模块 APK 提取后 `System.load()`
+2. so 必须落**宿主**私有目录 —— 模块代码跑在宿主进程，uid 是宿主的，写模块自己的目录会 `ENOENT`
+3. `DexKitBridge.create` 必须传**宿主** ClassLoader，传模块自己的只会扫到模块那几个类
+
+**四、体积**：50,666 → **947,971 字节**（DexKit 的 4 个架构 so + 604 KB dex）。
 
 ### v1.0.2 — 体积从 4.81 MB 降到 49 KB
 
@@ -70,7 +89,7 @@ APK 不入源码库（`.gitignore` 排除 `*.apk`），只作为 Release 附件�
   - 信息流 / 视频前贴片：`AdManager.l`、`AdManager.A`、`AdManager.B`
   - 阅读页广告：`ReaderAdManager.a`、`ReaderAdManager.e`、`ReaderAdManager.h`
   - 剧集解锁激励广告与插屏：解锁加载器 + `UnlockAdVM`
-- **注入自检**：每次注入核对全部目标类/方法，`[OK]`/`[MISS]` 逐项列出；首次注入额外弹一次屏幕提示。
+- **注入自检（DexKit）**：用字符串特征反查 DEX 核对 5 个关键目标的混淆名；只在**首次启用 / 模块更新 / 宿主更新**时核对并弹一次提示，混淆名变化时直接报出新名字。
 
 > **本模块不提供画质解锁功能** —— 做不到，原因见下节「关于画质」。
 
@@ -158,28 +177,72 @@ sdk.dir=C:/Users/<你的用户名>/AppData/Local/Android/Sdk
 3. **注意**：LSPosed 按包名记录模块启用状态，改动包名（例如从 `com.dz.hippo.xposed` 改成 `com.dz.hmxs`）会被视为全新模块，需要重新启用一次。
 4. 强制停止河马剧场后重新打开，模块在注入时会先做一次**自检**（见下）。
 
-### 注入自检
+### 注入自检（DexKit）
 
-每次注入都会在 logcat 打出目标类/方法的核对结果（过滤 `HippoXposed`）：
+自检用 **DexKit** 按字符串特征反查 DEX，核对 5 个关键 hook 目标的混淆名是否仍然有效。
+
+**为什么用字符串而不是类名**：R8 会重命名类与方法，但**不会改字符串常量**。所以宿主更新后混淆名一变，
+字符串特征仍能命中，DexKit 就能把新类名反查出来 —— 免去人工重新对照 smali。
+
+输出示例（过滤 `HippoXposed`）：
 
 ```text
 ========== 河马小手 注入自检 ==========
 目标应用 : com.dz.hmjc
 当前进程 : com.dz.hmjc
 框架     : LSPosed 2.2.1 (API 102)
-[OK]   广告: AdManager.l (拦截加载)  <- com.dz.platform.ad.a#l
-...
-[OK]   解锁: UnlockAdVM.onClose  <- com.dz.business.video.unlock.ad.UnlockAdVM#onClose
-结果     : 11/11 项全部匹配，模块可正常工作
+模块版本 : 4
+宿主指纹 : 1790713800575_108508206
+指纹     : 4|1790713800575_108508206（上次 (无)）
+libdexkit.so 已加载: lib/arm64-v8a/libdexkit.so -> /data/data/com.dz.hmjc/files/dexkit_native/
+[OK]   AdManager  混淆名仍有效: com.dz.platform.ad.a
+[OK]   ReaderAdManager  混淆名仍有效: com.dz.business.reader.ad.a
+[OK]   UnlockRewardAdLoader  混淆名仍有效: com.dz.business.video.unlock.ad.loader.reward.UnlockRewardAdLoader
+[OK]   InterstitialAdUnlockLoader  混淆名仍有效: com.dz.business.video.unlock.ad.loader.interstitial.a
+[OK]   UnlockAdVM  混淆名仍有效: com.dz.business.video.unlock.ad.UnlockAdVM
 ======================================
-目标应用版本: 3.11.1 (11031101)
+结果     : 5/5 项全部匹配，模块可正常工作
 ```
 
-- `[OK]` = 目标类与方法都在；`[MISS]` = 对不上，末尾会汇总缺失项并提示对照 smali 适配。
-- App 升级后 R8 会重新混淆，靠这一段就能立刻定位是哪个 hook 失效了，不用等它静默不生效。
-- **首次**注入（主进程）还会在屏幕上弹一次 Toast 汇总结果，之后不再弹。
-  记「已提示过」用的是目标应用私有目录下的空标记文件
-  `/data/data/com.dz.hmjc/files/.hmxs_selfcheck_shown`，删掉它即可让提示重新出现。
+三种核对结果：
+
+| 结果 | 含义 |
+| --- | --- |
+| `[OK]` | 已知混淆名仍有效 |
+| `[MISS]` | 特征串未命中任何类 |
+| `[CHANGED]` | **混淆名已变化 —— 直接打印新旧名字** |
+
+宿主更新导致改名时，`[CHANGED]` 会直接给出新名字：
+
+```text
+[CHANGED] AdManager  混淆名已变化
+旧: com.dz.platform.ad.OLDNAME
+新: com.dz.platform.ad.a
+```
+
+#### 提示时机：只在「指纹变化」时
+
+指纹 = `模块版本号 | 宿主安装包 lastModified_length`，存于宿主的
+`/data/data/com.dz.hmjc/files/.hmxs_checked_fingerprint`。
+
+**只有以下三种情况才会全量核对 + 弹 Toast**：
+
+1. **首次安装启用模块**（指纹文件不存在）
+2. **模块更新**（指纹里的模块版本号变化）
+3. **宿主更新**（安装包时间戳/大小变化）
+
+指纹未变则跳过耗时的 dex 解析（这占绝大多数冷启动）：
+
+```text
+指纹     : 4|1790713800575_108508206（上次 4|1790713800575_108508206）
+状态     : 模块与宿主均无变化，跳过类名核对
+```
+
+想强制重新核对，删掉那个指纹文件即可：
+
+```powershell
+adb shell su -c "rm -f /data/data/com.dz.hmjc/files/.hmxs_checked_fingerprint"
+```
 
 ## 配置
 
@@ -222,12 +285,12 @@ v1.0.1 移除。原因见「关于画质」——它不提升画质，只影响�
 
 ```text
 XposedModule/
-├── build.gradle.kts          # 开了 isMinifyEnabled + isShrinkResources，无 androidx 依赖
-├── proguard-rules.pro        # 保住 Xposed 入口类名与反射点
+├── build.gradle.kts          # R8 + shrinkResources；依赖 DexKit；无 androidx
+├── proguard-rules.pro        # 保住 Xposed 入口、DexKit/FlatBuffers 的 JNI 符号
 ├── src/main/
 │   ├── AndroidManifest.xml   # 无 Activity、无 LAUNCHER 入口
 │   ├── java/com/dz/hmxs/
-│   │   ├── HippoXposedModule.kt   # 入口 + 11 个 hook + 注入自检
+│   │   ├── HippoXposedModule.kt   # 入口 + 11 个 hook + DexKit 注入自检
 │   │   └── ModuleConfig.kt        # 只读开关（无 UI，恒为默认值）
 │   ├── resources/META-INF/xposed/
 │   │   ├── java_init.list        # 入口类 com.dz.hmxs.HippoXposedModule
