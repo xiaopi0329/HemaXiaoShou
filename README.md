@@ -14,13 +14,13 @@
 
 编译好的 APK 在 **Releases** 页：
 
-**➡️ [下载最新版 HemaXiaoShou-v1.0.3.apk](https://github.com/xiaopi0329/HemaXiaoShou/releases/latest)**
+**➡️ [下载最新版 HemaXiaoShou-v1.0.4.apk](https://github.com/xiaopi0329/HemaXiaoShou/releases/latest)**
 
 | 项 | 值 |
 | --- | --- |
-| 文件名 | `HemaXiaoShou-v1.0.3.apk` |
+| 文件名 | `HemaXiaoShou-v1.0.4.apk` |
 | 大小 | 947,971 字节（926 KB） |
-| SHA-256 | `7EFCC95752FB7EEB8D491DD3EF22EB42D6004D6641DC5176F201DAE43F6D970C` |
+| SHA-256 | `5D3EE265E2ECADD1DA8183D5AB4E03397546F3F909AF30D90677637FC38F91A5` |
 | 签名 | Android debug key |
 
 > v1.0.3 体积比 v1.0.2（49 KB）大了约 18 倍，是因为引入了 **DexKit**（C++ 实现的运行时 dex 解析库，
@@ -30,6 +30,36 @@
 APK 不入源码库（`.gitignore` 排除 `*.apk`），只作为 Release 附件分发。也可以自行构建，见下方「构建」。
 
 ## 版本变更
+
+### v1.0.4 — 新增去除青少年模式弹窗
+
+拦截点：`com.dz.business.teen.TeenMSImpl.w1(String currentTab)` 返回 `null`。
+
+决策链（3.11.1）：
+
+```text
+MainActivity.showTeenDialog
+  └─ TeenMSImpl.w1(currentTab)              返回非 null 即弹窗
+       ├─ teen.data.a.k() != 1 → return null      闸门1：开关
+       ├─ 关闭次数 / 间隔 / 同日判断               闸门2：频率限制
+       ├─ teen.utils.a.d()                          闸门3
+       ├─ teen.data.a.i().contains(tabIndex)        闸门4：tab 白名单
+       └─ TeenMR.teenModeDialog()
+```
+
+**为什么拦 `w1()` 而不拦闸门1**（踩过坑）：`teen.data.a.k()` 在 3.11.1 里有**两处**调用 ——
+`L234` 在 `w1()` 里（弹窗判定），`L147` 在 `n()` 里（发事件：`k()==1` 时带 `TeenConfigVo`，否则带 `null`），
+而 `n()` 的调用方是 `ShareCodeWXDialog`。把 `k()` 强制成 0 会**连带把该事件的参数从配置对象改成 null**，
+属于本功能之外的副作用，故改为只拦 `w1()`。
+
+拦 `w1()` 很干净：MainActivity 里是 `if-eqz v0, :cond_0`，拿到 `null` 直接跳过弹窗分支，
+既不构造 `DialogRouteIntent`，也不进 `PriorityTaskManager` 排队。
+
+**完备性**：穷举 `w1()` 调用方，只有 `MainActivity` 一处业务调用
+（另两处在 `TeenMSImpl$getTeenDialogIntent$1/2`，是它自身的 lambda）；
+`TeenModule.initRouter()` 里的 `teenModeDialog()` 只是**注册路由**，不是触发弹窗。
+
+同时 `ModuleConfig` 新增 `block_teen_mode_dialog` 开关；DexKit 自检目标由 `TeenModeConfig` 改为 `TeenMSImpl`。
 
 ### v1.0.3 — 自检改用 DexKit，指纹变化才提示
 
@@ -89,7 +119,8 @@ R8 不改字符串常量，所以宿主更新后混淆名一变，DexKit 仍能�
   - 信息流 / 视频前贴片：`AdManager.l`、`AdManager.A`、`AdManager.B`
   - 阅读页广告：`ReaderAdManager.a`、`ReaderAdManager.e`、`ReaderAdManager.h`
   - 剧集解锁激励广告与插屏：解锁加载器 + `UnlockAdVM`
-- **注入自检（DexKit）**：用字符串特征反查 DEX 核对 5 个关键目标的混淆名；只在**首次启用 / 模块更新 / 宿主更新**时核对并弹一次提示，混淆名变化时直接报出新名字。
+- **注入自检（DexKit）**：用字符串特征反查 DEX 核对 6 个关键目标的混淆名；只在**首次启用 / 模块更新 / 宿主更新**时核对并弹一次提示，混淆名变化时直接报出新名字。
+- **去除青少年模式弹窗**：拦截 `TeenMSImpl.w1()` 返回 null，不显示「青少年模式」提示。
 
 > **本模块不提供画质解锁功能** —— 做不到，原因见下节「关于画质」。
 
@@ -191,17 +222,18 @@ sdk.dir=C:/Users/<你的用户名>/AppData/Local/Android/Sdk
 目标应用 : com.dz.hmjc
 当前进程 : com.dz.hmjc
 框架     : LSPosed 2.2.1 (API 102)
-模块版本 : 4
+模块版本 : 5
 宿主指纹 : 1790713800575_108508206
-指纹     : 4|1790713800575_108508206（上次 (无)）
+指纹     : 5|1790713800575_108508206（上次 (无)）
 libdexkit.so 已加载: lib/arm64-v8a/libdexkit.so -> /data/data/com.dz.hmjc/files/dexkit_native/
 [OK]   AdManager  混淆名仍有效: com.dz.platform.ad.a
 [OK]   ReaderAdManager  混淆名仍有效: com.dz.business.reader.ad.a
 [OK]   UnlockRewardAdLoader  混淆名仍有效: com.dz.business.video.unlock.ad.loader.reward.UnlockRewardAdLoader
 [OK]   InterstitialAdUnlockLoader  混淆名仍有效: com.dz.business.video.unlock.ad.loader.interstitial.a
 [OK]   UnlockAdVM  混淆名仍有效: com.dz.business.video.unlock.ad.UnlockAdVM
+[OK]   TeenMSImpl  混淆名仍有效: com.dz.business.teen.TeenMSImpl
 ======================================
-结果     : 5/5 项全部匹配，模块可正常工作
+结果     : 6/6 项全部匹配，模块可正常工作
 ```
 
 三种核对结果：
@@ -272,6 +304,25 @@ adb shell su -c "rm -f /data/data/com.dz.hmjc/files/.hmxs_checked_fingerprint"
 
 > 参数里的 `Boolean` 是装箱类型（`java.lang.Boolean`），不是 `boolean.class`，写错会 `NoSuchMethodException`。
 
+### 青少年模式弹窗
+
+| Hook | 作用 |
+| --- | --- |
+| `com.dz.business.teen.TeenMSImpl` → `w1(String)` | 返回 `null`，跳过弹窗分支 |
+
+决策链与「为什么拦 `w1()` 而不拦 `teen.data.a.k()`」的理由见「版本变更 → v1.0.4」。
+
+实测的弹窗频率限制（来自 MMKV `/data/data/com.dz.hmjc/files/mmkv/device_related`）：
+
+| 键 | 值 |
+| --- | --- |
+| `TeenKV.intervalTime` | 180（分钟） |
+| `TeenKV.teen_dialog_close_count` | 关闭次数 |
+| `TeenKV.teen_dialog_last_show_time` / `teen_dialog_last_close_time` | 上次展示 / 关闭时间 |
+
+所以「刚关掉弹窗后的一段时间内本来就不会再弹」—— 若想观察拦截的正例，
+需等冷却期（默认 180 分钟）结束或清掉上述 `TeenKV` 键。
+
 ### 已移除：清晰度开关
 
 v1.0.1 移除。原因见「关于画质」——它不提升画质，只影响菜单能否打开。
@@ -290,7 +341,7 @@ XposedModule/
 ├── src/main/
 │   ├── AndroidManifest.xml   # 无 Activity、无 LAUNCHER 入口
 │   ├── java/com/dz/hmxs/
-│   │   ├── HippoXposedModule.kt   # 入口 + 11 个 hook + DexKit 注入自检
+│   │   ├── HippoXposedModule.kt   # 入口 + 12 个 hook + DexKit 注入自检
 │   │   └── ModuleConfig.kt        # 只读开关（无 UI，恒为默认值）
 │   ├── resources/META-INF/xposed/
 │   │   ├── java_init.list        # 入口类 com.dz.hmxs.HippoXposedModule
